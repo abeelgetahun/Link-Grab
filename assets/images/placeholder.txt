@@ -1,0 +1,5 @@
+This is a placeholder file to ensure the images directory exists in git.
+You should replace this with actual images for your onboarding screens:
+- onboarding1.png
+- onboarding2.png 
+- onboarding3.png 
