@@ -37,7 +37,11 @@ dependencies:
   floor: ^1.4.2
   floor_generator: ^1.4.2
   sqflite: ^2.3.0
-  provider: ^6.1.1
+  
+  # Switching from Provider to Riverpod for better state management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+  
   url_launcher: ^6.2.4
   share_plus: ^7.2.2
   path_provider: ^2.1.2
@@ -47,6 +51,17 @@ dependencies:
   # Replaced receive_sharing_intent with a more compatible package
   share_handler: ^0.0.22
   share_handler_platform_interface: ^0.0.6
+  
+  # For smooth page transitions
+  page_transition: ^2.1.0
+  # For better animations and UI performance
+  flutter_staggered_animations: ^1.1.1
+  cached_network_image: ^3.3.1
+  # For lazy loading
+  infinite_scroll_pagination: ^4.0.0
+  flutter_native_splash: ^2.4.6
+  lottie: ^3.3.1
+  animated_splash_screen: ^1.3.0
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +74,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   build_runner: ^2.4.7
+  riverpod_generator: ^2.4.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
