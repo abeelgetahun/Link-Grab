@@ -1,37 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/link_provider.dart';
-import '../providers/category_provider.dart';
-import '../utils/dialogs.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import '../providers/providers.dart';
+import '../utils/dialogs_riverpod.dart';
 import 'link_item.dart';
 
-class LinkList extends StatelessWidget {
+class LinkList extends ConsumerWidget {
   const LinkList({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer2<LinkProvider, CategoryProvider>(
-      builder: (context, linkProvider, categoryProvider, child) {
-        if (linkProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final linksAsync = ref.watch(linksProvider);
+    final categoryId = ref.watch(currentCategoryIdProvider);
 
-        // Add a header for the current category if we're filtering by category
-        String headerText = 'All Links';
-        if (linkProvider.currentCategoryId != null) {
-          try {
-            final category = categoryProvider.categories.firstWhere(
-              (cat) => cat.id == linkProvider.currentCategoryId,
-            );
-            headerText = category.name;
-          } catch (e) {
-            // If category not found, use default text
-            headerText = 'Filtered Links';
-          }
-        }
+    // Get filtered links using the filteredLinks provider
+    final links = ref.watch(filteredLinksProvider);
 
-        if (linkProvider.links.isEmpty) {
-          return Center(
+    return linksAsync.when(
+      data: (_) => _buildContent(context, ref, links, categoryId),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stack) =>
+              Center(child: Text('Error loading links: ${error.toString()}')),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    List<dynamic> links,
+    int? categoryId,
+  ) {
+    // Get category name if filtering by category
+    String headerText = 'All Links';
+    if (categoryId != null) {
+      final category = ref.watch(categoryByIdProvider(categoryId));
+      if (category != null) {
+        headerText = category.name;
+      } else {
+        headerText = 'Filtered Links';
+      }
+    }
+
+    if (links.isEmpty) {
+      return AnimationConfiguration.synchronized(
+        duration: const Duration(milliseconds: 400),
+        child: FadeInAnimation(
+          child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -39,61 +54,89 @@ class LinkList extends StatelessWidget {
                 const SizedBox(height: 16),
                 const Text('No links yet', style: TextStyle(fontSize: 18)),
                 const SizedBox(height: 16),
-                linkProvider.currentCategoryId != null
+                categoryId != null
                     ? ElevatedButton(
                       onPressed: () {
-                        linkProvider.loadAllLinks();
+                        ref.read(currentCategoryIdProvider.notifier).state =
+                            null;
+                        ref.read(linksProvider.notifier).loadAllLinks();
                       },
                       child: const Text('Show All Links'),
                     )
                     : ElevatedButton(
                       onPressed: () {
-                        Dialogs.showAddLinkDialog(context, '');
+                        DialogsRiverpod.showAddLinkDialog(context, '');
                       },
                       child: const Text('Add Link'),
                     ),
               ],
             ),
-          );
-        }
+          ),
+        ),
+      );
+    }
 
-        return Column(
-          children: [
-            // Category header
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    headerText,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  if (linkProvider.currentCategoryId != null)
-                    TextButton.icon(
-                      icon: const Icon(Icons.clear),
-                      label: const Text('Clear Filter'),
-                      onPressed: () {
-                        linkProvider.loadAllLinks();
-                      },
+    return Column(
+      children: [
+        // Category header with animation
+        AnimationConfiguration.synchronized(
+          duration: const Duration(milliseconds: 300),
+          child: SlideAnimation(
+            verticalOffset: 50.0,
+            child: FadeInAnimation(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Hero(
+                      tag: 'categoryTitle${categoryId ?? 0}',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Text(
+                          headerText,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
                     ),
-                ],
+                    if (categoryId != null)
+                      TextButton.icon(
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Clear Filter'),
+                        onPressed: () {
+                          ref.read(currentCategoryIdProvider.notifier).state =
+                              null;
+                          ref.read(linksProvider.notifier).loadAllLinks();
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
+          ),
+        ),
 
-            // Links list
-            Expanded(
-              child: ListView.builder(
-                itemCount: linkProvider.links.length,
-                itemBuilder: (context, index) {
-                  final link = linkProvider.links[index];
-                  return LinkItem(link: link);
-                },
-              ),
+        // Links list with staggered animations
+        Expanded(
+          child: AnimationLimiter(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: links.length,
+              itemBuilder: (context, index) {
+                final link = links[index];
+                return AnimationConfiguration.staggeredList(
+                  position: index,
+                  duration: const Duration(milliseconds: 375),
+                  child: SlideAnimation(
+                    verticalOffset: 50.0,
+                    child: FadeInAnimation(child: LinkItem(link: link)),
+                  ),
+                );
+              },
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }
