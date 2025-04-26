@@ -1,39 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import '../models/link.dart';
-import '../providers/link_provider.dart';
-import '../providers/category_provider.dart';
-import '../utils/dialogs.dart';
+import '../providers/providers.dart';
+import '../utils/dialogs_riverpod.dart';
 import '../services/share_service.dart';
 
-class LinkItem extends StatelessWidget {
+class LinkItem extends ConsumerWidget {
   final Link link;
 
   const LinkItem({Key? key, required this.link}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // Get the category name for this link
-    final categoryProvider = Provider.of<CategoryProvider>(
-      context,
-      listen: false,
-    );
-    final linkProvider = Provider.of<LinkProvider>(context, listen: false);
+    final category = ref.watch(categoryByIdProvider(link.categoryId));
+    final linksNotifier = ref.watch(linksProvider.notifier);
 
     String categoryName = 'Uncategorized';
-    if (link.categoryId != 0) {
-      try {
-        final category = categoryProvider.categories.firstWhere(
-          (cat) => cat.id == link.categoryId,
-        );
-        categoryName = category.name;
-      } catch (e) {
-        // Category might have been deleted
-        categoryName = 'Unknown Category';
-      }
+    if (link.categoryId != 0 && category != null) {
+      categoryName = category.name;
+    } else if (link.categoryId != 0) {
+      categoryName = 'Unknown Category';
     }
 
     return Slidable(
@@ -51,13 +41,14 @@ class LinkItem extends StatelessWidget {
           ),
           SlidableAction(
             onPressed: (context) async {
-              final shouldDelete = await Dialogs.showDeleteConfirmDialog(
-                context,
-                'link',
-              );
+              final shouldDelete =
+                  await DialogsRiverpod.showDeleteConfirmDialog(
+                    context,
+                    'link',
+                  );
 
               if (shouldDelete && context.mounted) {
-                linkProvider.deleteLink(link);
+                linksNotifier.deleteLink(link);
               }
             },
             backgroundColor: Colors.red,
@@ -67,49 +58,90 @@ class LinkItem extends StatelessWidget {
           ),
         ],
       ),
-      child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.link)),
-        title: Text(
-          link.title ?? _formatUrl(link.url),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              link.url,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
+      child: Card(
+        elevation: 0,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _launchUrl(context, link.url),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ListTile(
+              leading: Hero(
+                tag: 'link_icon_${link.id}',
+                child: CircleAvatar(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withOpacity(0.2),
+                  child: Icon(
+                    Icons.link,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+                ),
+              ),
+              title: Hero(
+                tag: 'link_title_${link.id}',
+                child: Material(
+                  color: Colors.transparent,
                   child: Text(
-                    categoryName,
-                    style: const TextStyle(fontSize: 10),
+                    link.title ?? _formatUrl(link.url),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatDate(link.createdAt),
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
-              ],
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Text(
+                    link.url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          categoryName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDate(link.createdAt),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
-        onTap: () => _launchUrl(context, link.url),
       ),
     );
   }
@@ -126,9 +158,12 @@ class LinkItem extends StatelessWidget {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not open: $url')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open: $url'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
