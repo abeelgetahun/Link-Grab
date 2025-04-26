@@ -1,83 +1,147 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/link_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import '../providers/providers.dart';
 import '../widgets/link_item.dart';
 
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    // Clear any existing search
+    // Request focus when screen appears
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<LinkProvider>(context, listen: false).clearSearch();
+      _searchFocus.requestFocus();
+      // Clear any existing search
+      ref.read(searchQueryProvider.notifier).state = '';
     });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
+    // Clear search query when leaving screen
+    ref.read(searchQueryProvider.notifier).state = '';
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get links filtered by search query
+    final query = ref.watch(searchQueryProvider);
+    final linksAsync = ref.watch(linksProvider);
+
+    // Create the filtered list
+    final links = ref.watch(filteredLinksProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
-          decoration: const InputDecoration(
+          focusNode: _searchFocus,
+          decoration: InputDecoration(
             hintText: 'Search links...',
             border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.white70),
+            suffixIcon:
+                query.isNotEmpty
+                    ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: _clearSearch,
+                    )
+                    : null,
           ),
-          style: const TextStyle(color: Colors.white),
-          onChanged: (query) {
-            Provider.of<LinkProvider>(
-              context,
-              listen: false,
-            ).searchLinks(query);
+          onChanged: (value) {
+            ref.read(searchQueryProvider.notifier).state = value;
           },
-          autofocus: true,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () {
-              _searchController.clear();
-              Provider.of<LinkProvider>(context, listen: false).clearSearch();
-            },
-          ),
-        ],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
-      body: Consumer<LinkProvider>(
-        builder: (context, linkProvider, child) {
-          final links = linkProvider.links;
+      body: linksAsync.when(
+        data: (_) => _buildResults(links, query),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text('Error: ${error.toString()}')),
+      ),
+    );
+  }
 
-          if (linkProvider.searchQuery.isEmpty) {
-            return const Center(child: Text('Type something to search'));
-          }
+  Widget _buildResults(List<dynamic> links, String query) {
+    if (query.isEmpty) {
+      return AnimationConfiguration.synchronized(
+        duration: const Duration(milliseconds: 300),
+        child: FadeInAnimation(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.search, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'Enter text to search',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
-          if (links.isEmpty) {
-            return const Center(child: Text('No results found'));
-          }
+    if (links.isEmpty) {
+      return AnimationConfiguration.synchronized(
+        duration: const Duration(milliseconds: 300),
+        child: FadeInAnimation(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(
+                  'No results for "$query"',
+                  style: const TextStyle(fontSize: 18),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
-          return ListView.builder(
-            itemCount: links.length,
-            itemBuilder: (context, index) {
-              return LinkItem(link: links[index]);
-            },
+    return AnimationLimiter(
+      child: ListView.builder(
+        physics: const BouncingScrollPhysics(),
+        itemCount: links.length,
+        itemBuilder: (context, index) {
+          final link = links[index];
+          return AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 375),
+            child: SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(child: LinkItem(link: link)),
+            ),
           );
         },
       ),
     );
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    ref.read(searchQueryProvider.notifier).state = '';
+    _searchFocus.requestFocus();
   }
 }
