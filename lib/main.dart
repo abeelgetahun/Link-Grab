@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'database/database.dart';
 import 'models/category.dart';
 import 'models/link.dart';
-import 'providers/category_provider.dart';
-import 'providers/link_provider.dart';
+import 'providers/providers.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/category_repository.dart';
@@ -18,7 +17,7 @@ void main() async {
   // Initialize the database
   AppDatabase? database;
 
-  // Create mock repositories for web
+  // Create repositories
   late CategoryRepository categoryRepository;
   late LinkRepository linkRepository;
 
@@ -42,22 +41,11 @@ void main() async {
   final seenOnboarding = prefs.getBool('seen_onboarding') ?? false;
 
   runApp(
-    MultiProvider(
-      providers: [
-        Provider<CategoryRepository>(create: (_) => categoryRepository),
-        Provider<LinkRepository>(create: (_) => linkRepository),
-        ChangeNotifierProvider(
-          create:
-              (context) => CategoryProvider(
-                Provider.of<CategoryRepository>(context, listen: false),
-              ),
-        ),
-        ChangeNotifierProvider(
-          create:
-              (context) => LinkProvider(
-                Provider.of<LinkRepository>(context, listen: false),
-              ),
-        ),
+    ProviderScope(
+      overrides: [
+        // Override the repository providers with actual implementations
+        categoryRepositoryProvider.overrideWithValue(categoryRepository),
+        linkRepositoryProvider.overrideWithValue(linkRepository),
       ],
       child: MyApp(seenOnboarding: seenOnboarding),
     ),
@@ -76,6 +64,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
+        // Add smooth animation settings
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+          },
+        ),
       ),
       debugShowCheckedModeBanner: false,
       home: seenOnboarding ? const HomeScreen() : const OnboardingScreen(),
