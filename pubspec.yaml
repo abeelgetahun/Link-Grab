@@ -34,8 +34,11 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  floor: ^1.4.2
-  floor_generator: ^1.4.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  google_fonts: ^6.1.0
+  flutter_colorpicker: ^1.0.3
+  uuid: ^4.3.3 # Added uuid package
   sqflite: ^2.3.0
   
   # Switching from Provider to Riverpod for better state management
@@ -73,11 +76,20 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  hive_generator: ^2.0.0
   build_runner: ^2.4.7
   riverpod_generator: ^2.4.0
+  mockito: ^5.4.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+flutter_native_splash:
+  color: "#FFFFFF" # White background
+  image: assets/images/splash_logo.png
+  android: true
+  ios: true
+  web: false # Assuming web is not a primary target for native splash
 
 # The following section is specific to Flutter packages.
 flutter:

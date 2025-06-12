@@ -1,33 +1,39 @@
-import 'package:floor/floor.dart';
+part 'link.g.dart';
 
-@entity
+@HiveType(typeId: 0)
 class Link {
-  @PrimaryKey(autoGenerate: true)
-  final int? id;
+  @HiveField(0)
+  final String id;
 
+  @HiveField(1)
   final String url;
-  final String? title;
-  final String? description;
-  final String? imageUrl;
-  final String? sourceApp;
-  final int categoryId;
 
-  @ColumnInfo(name: 'created_at')
-  final int createdAtMillis; // Store as milliseconds since epoch
+  @HiveField(2)
+  final String? title;
+
+  @HiveField(3)
+  final String? group;
+
+  @HiveField(4)
+  final String? description;
+
+  @HiveField(5)
+  final bool isFavorite;
+
+  @HiveField(6)
+  final DateTime createdAt;
+
+  // imageUrl is removed as per the instructions (it was not mentioned to keep it)
+  // sourceApp is removed as per the instructions
+  // categoryId is removed as per the instructions
 
   Link({
-    this.id,
+    required this.id,
     required this.url,
     this.title,
+    this.group,
     this.description,
-    this.imageUrl,
-    this.sourceApp,
-    required this.categoryId,
-    DateTime? createdAt,
-  }) : this.createdAtMillis =
-           (createdAt ?? DateTime.now()).millisecondsSinceEpoch;
-
-  // Convenience getter to convert milliseconds to DateTime
-  DateTime get createdAt =>
-      DateTime.fromMillisecondsSinceEpoch(createdAtMillis);
+    this.isFavorite = false,
+    required this.createdAt,
+  });
 }
